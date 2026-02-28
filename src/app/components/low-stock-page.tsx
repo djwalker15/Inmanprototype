@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { useStore } from '../data/store';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import {
   Table,
   TableBody,
@@ -18,7 +17,7 @@ import { toast } from 'sonner';
 export function LowStockPage() {
   const items = useStore((s) => s.items);
   const categories = useStore((s) => s.categories);
-  const updateItem = useStore((s) => s.updateItem);
+  const updateItemQuantity = useStore((s) => s.updateItemQuantity);
 
   const getCategoryName = (id: number) =>
     categories.find(c => c.category_id === id)?.category_name ?? 'Unknown';
@@ -37,15 +36,23 @@ export function LowStockPage() {
   const criticalItems = lowStockItems.filter((i) => i.quantity === 0);
   const warningItems = lowStockItems.filter((i) => i.quantity > 0);
 
-  const incrementQuantity = (id: number, current: number) => {
-    updateItem(id, { quantity: current + 1 });
-    toast.success('Quantity updated');
+  const incrementQuantity = async (id: number, current: number) => {
+    try {
+      await updateItemQuantity(id, current + 1);
+      toast.success('Quantity updated');
+    } catch {
+      toast.error('Failed to update quantity');
+    }
   };
 
-  const decrementQuantity = (id: number, current: number) => {
+  const decrementQuantity = async (id: number, current: number) => {
     if (current > 0) {
-      updateItem(id, { quantity: current - 1 });
-      toast.success('Quantity updated');
+      try {
+        await updateItemQuantity(id, current - 1);
+        toast.success('Quantity updated');
+      } catch {
+        toast.error('Failed to update quantity');
+      }
     }
   };
 

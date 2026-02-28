@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import {
   Package,
-  MapPin,
+  Box,
   Tags,
   AlertTriangle,
   MapPinOff,
@@ -32,31 +32,37 @@ const COLORS = [
 export function DashboardPage() {
   const items = useStore((s) => s.items);
   const categories = useStore((s) => s.categories);
-  const locations = useStore((s) => s.locations);
+  const spaces = useStore((s) => s.spaces);
 
   const lowStock = useMemo(
     () => items.filter(i => i.min_stock !== null && i.quantity <= i.min_stock),
     [items]
   );
   const unassigned = useMemo(
-    () => items.filter(i => i.location_id === null),
+    () => items.filter(i => i.space_id === null),
     [items]
   );
 
-  const categoryData = categories.map((cat) => {
-    const count = items.filter((i) => i.category_id === cat.category_id).length;
-    return { name: cat.category_name, count };
-  }).sort((a, b) => b.count - a.count);
+  const categoryData = useMemo(() =>
+    categories.map((cat) => {
+      const count = items.filter((i) => i.category_id === cat.category_id).length;
+      return { name: cat.category_name, count };
+    }).sort((a, b) => b.count - a.count),
+    [items, categories]
+  );
 
-  const zoneData = locations
-    .filter((l) => l.unit_type === 'zone')
-    .map((zone) => {
-      const childIds = getDescendantIds(zone.location_id, locations);
-      const count = items.filter((i) => i.location_id !== null && childIds.includes(i.location_id)).length;
-      return { name: zone.display_name, count };
-    });
+  const zoneData = useMemo(() =>
+    spaces
+      .filter((s) => s.unit_type === 'zone')
+      .map((zone) => {
+        const childIds = getDescendantIds(zone.space_id, spaces);
+        const count = items.filter((i) => i.space_id !== null && childIds.includes(i.space_id)).length;
+        return { name: zone.name, count };
+      }),
+    [items, spaces]
+  );
 
-  const assignedCount = items.filter((i) => i.location_id !== null).length;
+  const assignedCount = items.filter((i) => i.space_id !== null).length;
   const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
@@ -87,10 +93,10 @@ export function DashboardPage() {
           bg="bg-violet-50"
         />
         <StatCard
-          title="Locations"
-          value={locations.length}
+          title="Spaces"
+          value={spaces.length}
           subtitle="Storage spots mapped"
-          icon={<MapPin className="w-4 h-4" />}
+          icon={<Box className="w-4 h-4" />}
           color="text-emerald-600"
           bg="bg-emerald-50"
         />
@@ -120,11 +126,11 @@ export function DashboardPage() {
           <div className="w-full bg-muted rounded-full h-3">
             <div
               className="bg-primary h-3 rounded-full transition-all"
-              style={{ width: `${(assignedCount / items.length) * 100}%` }}
+              style={{ width: `${items.length > 0 ? (assignedCount / items.length) * 100 : 0}%` }}
             />
           </div>
           <p className="text-[0.75rem] text-muted-foreground mt-2">
-            {unassigned.length} items still need shelf assignments after being returned from pantry consolidation
+            {unassigned.length} items still need space assignments
           </p>
         </CardContent>
       </Card>
@@ -168,7 +174,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-[0.95rem] flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
+              <Box className="w-4 h-4" />
               Items by Zone
             </CardTitle>
           </CardHeader>
@@ -177,7 +183,7 @@ export function DashboardPage() {
               {assignedCount === 0 ? (
                 <div className="text-center text-muted-foreground">
                   <MapPinOff className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-[0.875rem]">No items assigned to locations yet</p>
+                  <p className="text-[0.875rem]">No items assigned to spaces yet</p>
                   <p className="text-[0.75rem] mt-1">Assign items to see zone distribution</p>
                 </div>
               ) : (
@@ -281,12 +287,12 @@ function StatCard({
   );
 }
 
-// Helper: get all descendant location IDs
-function getDescendantIds(parentId: number, allLocations: { location_id: number; parent_id: number | null }[]): number[] {
+// Helper: get all descendant space IDs
+function getDescendantIds(parentId: number, allSpaces: { space_id: number; parent_id: number | null }[]): number[] {
   const ids = [parentId];
-  const children = allLocations.filter((l) => l.parent_id === parentId);
+  const children = allSpaces.filter((s) => s.parent_id === parentId);
   for (const child of children) {
-    ids.push(...getDescendantIds(child.location_id, allLocations));
+    ids.push(...getDescendantIds(child.space_id, allSpaces));
   }
   return ids;
 }

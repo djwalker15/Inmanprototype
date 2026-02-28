@@ -1,97 +1,213 @@
 import { create } from 'zustand';
-import {
-  type InventoryItem,
-  type Location,
-  type Category,
-  inventoryItems as initialItems,
-  locations as initialLocations,
-  categories as initialCategories,
-} from './mock-data';
+import type { InventoryItem, Space, Category } from './types';
+import * as api from './api';
 
 interface InManStore {
+  // Data
   items: InventoryItem[];
-  locations: Location[];
+  spaces: Space[];
   categories: Category[];
+
+  // Loading state
+  loading: boolean;
+  initialized: boolean;
+  error: string | null;
+
+  // Filters
   searchQuery: string;
   selectedCategoryFilter: number | null;
-  selectedLocationFilter: number | null;
+  selectedSpaceFilter: number | null;
 
+  // Actions — filters
   setSearchQuery: (q: string) => void;
   setCategoryFilter: (id: number | null) => void;
-  setLocationFilter: (id: number | null) => void;
+  setSpaceFilter: (id: number | null) => void;
 
-  addItem: (item: Omit<InventoryItem, 'item_id' | 'created_at' | 'updated_at'>) => void;
-  updateItem: (id: number, updates: Partial<InventoryItem>) => void;
-  deleteItem: (id: number) => void;
+  // Actions — data loading
+  initialize: () => Promise<void>;
 
-  getFilteredItems: () => InventoryItem[];
-  getLowStockItems: () => InventoryItem[];
-  getUnassignedItems: () => InventoryItem[];
+  // Actions — items
+  addItem: (item: Omit<InventoryItem, 'item_id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateItem: (id: number, updates: Partial<InventoryItem>) => Promise<void>;
+  deleteItem: (id: number) => Promise<void>;
+  updateItemQuantity: (id: number, quantity: number) => Promise<void>;
+
+  // Actions — spaces
+  addSpace: (space: Omit<Space, 'space_id'>) => Promise<void>;
+  updateSpace: (id: number, updates: Partial<Space>) => Promise<void>;
+  deleteSpace: (id: number, mode: 'promote' | 'cascade') => Promise<void>;
+
+  // Actions — categories
+  addCategory: (cat: Omit<Category, 'category_id'>) => Promise<void>;
+  updateCategory: (id: number, updates: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: number) => Promise<void>;
+
+  // Derived data helpers (non-reactive — use useMemo in components)
   getCategoryName: (id: number) => string;
-  getLocationName: (id: number | null) => string;
+  getSpaceName: (id: number | null) => string;
+  getSpacePath: (id: number | null) => string;
 }
 
 export const useStore = create<InManStore>((set, get) => ({
-  items: initialItems,
-  locations: initialLocations,
-  categories: initialCategories,
+  items: [],
+  spaces: [],
+  categories: [],
+  loading: false,
+  initialized: false,
+  error: null,
   searchQuery: '',
   selectedCategoryFilter: null,
-  selectedLocationFilter: null,
+  selectedSpaceFilter: null,
 
   setSearchQuery: (q) => set({ searchQuery: q }),
   setCategoryFilter: (id) => set({ selectedCategoryFilter: id }),
-  setLocationFilter: (id) => set({ selectedLocationFilter: id }),
+  setSpaceFilter: (id) => set({ selectedSpaceFilter: id }),
 
-  addItem: (item) => {
-    const now = new Date().toISOString().split('T')[0];
-    const maxId = Math.max(...get().items.map(i => i.item_id), 0);
-    set((state) => ({
-      items: [...state.items, { ...item, item_id: maxId + 1, created_at: now, updated_at: now }],
-    }));
+  initialize: async () => {
+    if (get().initialized || get().loading) return;
+    set({ loading: true, error: null });
+    try {
+      // Seed if needed (idempotent)
+      await api.seed();
+      // Fetch all data in parallel
+      const [items, spaces, categories] = await Promise.all([
+        api.fetchItems(),
+        api.fetchSpaces(),
+        api.fetchCategories(),
+      ]);
+      set({ items, spaces, categories, loading: false, initialized: true });
+    } catch (e: any) {
+      console.error('Store initialization error:', e);
+      set({ loading: false, error: e.message ?? 'Failed to load data' });
+    }
   },
 
-  updateItem: (id, updates) => {
-    const now = new Date().toISOString().split('T')[0];
-    set((state) => ({
-      items: state.items.map(i =>
-        i.item_id === id ? { ...i, ...updates, updated_at: now } : i
-      ),
-    }));
+  // ── Items ──
+  addItem: async (item) => {
+    try {
+      const created = await api.createItem(item);
+      set((s) => ({ items: [...s.items, created] }));
+    } catch (e: any) {
+      console.error('addItem error:', e);
+      throw e;
+    }
   },
 
-  deleteItem: (id) => {
-    set((state) => ({
-      items: state.items.filter(i => i.item_id !== id),
-    }));
+  updateItem: async (id, updates) => {
+    try {
+      const updated = await api.updateItem(id, updates);
+      set((s) => ({ items: s.items.map(i => i.item_id === id ? updated : i) }));
+    } catch (e: any) {
+      console.error('updateItem error:', e);
+      throw e;
+    }
   },
 
-  getFilteredItems: () => {
-    const { items, searchQuery, selectedCategoryFilter, selectedLocationFilter } = get();
-    return items.filter(item => {
-      const matchesSearch = !searchQuery ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-      const matchesCategory = selectedCategoryFilter === null || item.category_id === selectedCategoryFilter;
-      const matchesLocation = selectedLocationFilter === null || item.location_id === selectedLocationFilter;
-      return matchesSearch && matchesCategory && matchesLocation;
-    });
+  deleteItem: async (id) => {
+    try {
+      await api.deleteItem(id);
+      set((s) => ({ items: s.items.filter(i => i.item_id !== id) }));
+    } catch (e: any) {
+      console.error('deleteItem error:', e);
+      throw e;
+    }
   },
 
-  getLowStockItems: () => {
-    return get().items.filter(i => i.min_stock !== null && i.quantity <= i.min_stock);
+  updateItemQuantity: async (id, quantity) => {
+    try {
+      const updated = await api.updateItemQuantity(id, quantity);
+      set((s) => ({ items: s.items.map(i => i.item_id === id ? updated : i) }));
+    } catch (e: any) {
+      console.error('updateItemQuantity error:', e);
+      throw e;
+    }
   },
 
-  getUnassignedItems: () => {
-    return get().items.filter(i => i.location_id === null);
+  // ── Spaces ──
+  addSpace: async (space) => {
+    try {
+      const created = await api.createSpace(space);
+      set((s) => ({ spaces: [...s.spaces, created] }));
+    } catch (e: any) {
+      console.error('addSpace error:', e);
+      throw e;
+    }
   },
 
+  updateSpace: async (id, updates) => {
+    try {
+      const updated = await api.updateSpace(id, updates);
+      set((s) => ({ spaces: s.spaces.map(sp => sp.space_id === id ? updated : sp) }));
+    } catch (e: any) {
+      console.error('updateSpace error:', e);
+      throw e;
+    }
+  },
+
+  deleteSpace: async (id, mode) => {
+    try {
+      await api.deleteSpace(id, mode);
+      // Re-fetch all data after delete to get updated parent_ids and nulled space_ids
+      const [items, spaces] = await Promise.all([api.fetchItems(), api.fetchSpaces()]);
+      set({ items, spaces });
+    } catch (e: any) {
+      console.error('deleteSpace error:', e);
+      throw e;
+    }
+  },
+
+  // ── Categories ──
+  addCategory: async (cat) => {
+    try {
+      const created = await api.createCategory(cat);
+      set((s) => ({ categories: [...s.categories, created] }));
+    } catch (e: any) {
+      console.error('addCategory error:', e);
+      throw e;
+    }
+  },
+
+  updateCategory: async (id, updates) => {
+    try {
+      const updated = await api.updateCategory(id, updates);
+      set((s) => ({ categories: s.categories.map(c => c.category_id === id ? updated : c) }));
+    } catch (e: any) {
+      console.error('updateCategory error:', e);
+      throw e;
+    }
+  },
+
+  deleteCategory: async (id) => {
+    try {
+      await api.deleteCategory(id);
+      set((s) => ({ categories: s.categories.filter(c => c.category_id !== id) }));
+    } catch (e: any) {
+      console.error('deleteCategory error:', e);
+      throw e;
+    }
+  },
+
+  // ── Helpers ──
   getCategoryName: (id) => {
     return get().categories.find(c => c.category_id === id)?.category_name ?? 'Unknown';
   },
 
-  getLocationName: (id) => {
+  getSpaceName: (id) => {
     if (id === null) return 'Unassigned';
-    return get().locations.find(l => l.location_id === id)?.display_name ?? 'Unknown';
+    return get().spaces.find(s => s.space_id === id)?.name ?? 'Unknown';
+  },
+
+  getSpacePath: (id) => {
+    if (id === null) return 'Unassigned';
+    const { spaces } = get();
+    const path: string[] = [];
+    let current = spaces.find(s => s.space_id === id);
+    while (current) {
+      path.unshift(current.name);
+      current = current.parent_id !== null
+        ? spaces.find(s => s.space_id === current!.parent_id)
+        : undefined;
+    }
+    return path.join(' > ') || 'Unknown';
   },
 }));

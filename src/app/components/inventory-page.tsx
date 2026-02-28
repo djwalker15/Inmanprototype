@@ -38,21 +38,32 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { InventoryItem } from '../data/mock-data';
+import type { InventoryItem, Space } from '../data/types';
 
 const UNITS = ['count', 'oz', 'lbs', 'g', 'ml', 'L', 'pkg'];
 const PAGE_SIZE = 20;
 
+// Build indented tree options for the space dropdown
+function buildSpaceTree(spaces: Space[], parentId: number | null = null, depth: number = 0): { space: Space; depth: number }[] {
+  const result: { space: Space; depth: number }[] = [];
+  const children = spaces.filter(s => s.parent_id === parentId).sort((a, b) => a.name.localeCompare(b.name));
+  for (const child of children) {
+    result.push({ space: child, depth });
+    result.push(...buildSpaceTree(spaces, child.space_id, depth + 1));
+  }
+  return result;
+}
+
 export function InventoryPage() {
   const items = useStore((s) => s.items);
   const categories = useStore((s) => s.categories);
-  const locations = useStore((s) => s.locations);
+  const spaces = useStore((s) => s.spaces);
   const searchQuery = useStore((s) => s.searchQuery);
   const selectedCategoryFilter = useStore((s) => s.selectedCategoryFilter);
   const setSearchQuery = useStore((s) => s.setSearchQuery);
   const setCategoryFilter = useStore((s) => s.setCategoryFilter);
   const getCategoryName = useStore((s) => s.getCategoryName);
-  const getLocationName = useStore((s) => s.getLocationName);
+  const getSpacePath = useStore((s) => s.getSpacePath);
   const addItem = useStore((s) => s.addItem);
   const updateItem = useStore((s) => s.updateItem);
   const deleteItem = useStore((s) => s.deleteItem);
@@ -61,6 +72,7 @@ export function InventoryPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [page, setPage] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -74,6 +86,8 @@ export function InventoryPage() {
   const totalPages = Math.ceil(filteredItems.length / PAGE_SIZE);
   const pagedItems = filteredItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  const spaceTree = useMemo(() => buildSpaceTree(spaces), [spaces]);
+
   const openAddDialog = () => {
     setEditingItem(null);
     setDialogOpen(true);
@@ -84,11 +98,11 @@ export function InventoryPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = (formData: FormData) => {
+  const handleSave = async (formData: FormData) => {
     const name = formData.get('name') as string;
     const brand = (formData.get('brand') as string) || null;
     const category_id = Number(formData.get('category_id'));
-    const location_id = formData.get('location_id') ? Number(formData.get('location_id')) : null;
+    const space_id = formData.get('space_id') ? Number(formData.get('space_id')) : null;
     const quantity = Number(formData.get('quantity'));
     const unit = formData.get('unit') as string;
     const min_stock = formData.get('min_stock') ? Number(formData.get('min_stock')) : null;
@@ -100,24 +114,35 @@ export function InventoryPage() {
       return;
     }
 
-    if (editingItem) {
-      updateItem(editingItem.item_id, {
-        name, brand, category_id, location_id, quantity, unit, min_stock, expiry_date, notes,
-      });
-      toast.success(`Updated "${name}"`);
-    } else {
-      addItem({
-        name, brand, category_id, location_id, quantity, unit, min_stock, expiry_date, notes, barcode: null,
-      });
-      toast.success(`Added "${name}"`);
+    setSaving(true);
+    try {
+      if (editingItem) {
+        await updateItem(editingItem.item_id, {
+          name, brand, category_id, space_id, quantity, unit, min_stock, expiry_date, notes,
+        });
+        toast.success(`Updated "${name}"`);
+      } else {
+        await addItem({
+          name, brand, category_id, space_id, quantity, unit, min_stock, expiry_date, notes, barcode: null,
+        });
+        toast.success(`Added "${name}"`);
+      }
+      setDialogOpen(false);
+    } catch {
+      toast.error('Failed to save item');
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     const item = items.find((i) => i.item_id === id);
-    deleteItem(id);
-    toast.success(`Deleted "${item?.name}"`);
+    try {
+      await deleteItem(id);
+      toast.success(`Deleted "${item?.name}"`);
+    } catch {
+      toast.error('Failed to delete item');
+    }
     setDeleteConfirm(null);
   };
 
@@ -216,8 +241,8 @@ export function InventoryPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          {item.location_id ? (
-                            <span className="text-[0.8rem]">{getLocationName(item.location_id)}</span>
+                          {item.space_id ? (
+                            <span className="text-[0.8rem]">{getSpacePath(item.space_id)}</span>
                           ) : (
                             <span className="text-[0.8rem] text-muted-foreground flex items-center gap-1">
                               <MapPinOff className="w-3 h-3" /> Unassigned
@@ -366,22 +391,19 @@ export function InventoryPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="location_id">Location</Label>
+                <Label htmlFor="space_id">Location</Label>
                 <select
-                  id="location_id"
-                  name="location_id"
-                  defaultValue={editingItem?.location_id ?? ''}
+                  id="space_id"
+                  name="space_id"
+                  defaultValue={editingItem?.space_id ?? ''}
                   className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-[0.875rem] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="">Unassigned</option>
-                  {locations
-                    .filter((l) => l.unit_type !== 'zone')
-                    .sort((a, b) => a.display_name.localeCompare(b.display_name))
-                    .map((loc) => (
-                      <option key={loc.location_id} value={loc.location_id}>
-                        {loc.display_name}
-                      </option>
-                    ))}
+                  {spaceTree.map(({ space, depth }) => (
+                    <option key={space.space_id} value={space.space_id}>
+                      {'\u00A0'.repeat(depth * 3)}{space.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -402,7 +424,9 @@ export function InventoryPage() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{editingItem ? 'Save Changes' : 'Add Item'}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Add Item'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -1,15 +1,16 @@
-import { Outlet, NavLink, useLocation } from 'react-router';
+import { Outlet, NavLink } from 'react-router';
 import {
   LayoutDashboard,
   Package,
-  MapPin,
+  Box,
   Tags,
   AlertTriangle,
   Menu,
   X,
   ChefHat,
+  Loader2,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../data/store';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -18,7 +19,7 @@ import { Toaster } from 'sonner';
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/inventory', label: 'Inventory', icon: Package },
-  { to: '/locations', label: 'Locations', icon: MapPin },
+  { to: '/spaces', label: 'Spaces', icon: Box },
   { to: '/categories', label: 'Categories', icon: Tags },
   { to: '/low-stock', label: 'Low Stock', icon: AlertTriangle },
 ];
@@ -26,11 +27,44 @@ const navItems = [
 export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = useStore((s) => s.items);
+  const loading = useStore((s) => s.loading);
+  const initialized = useStore((s) => s.initialized);
+  const error = useStore((s) => s.error);
+  const initialize = useStore((s) => s.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
   const lowStockCount = useMemo(
     () => items.filter(i => i.min_stock !== null && i.quantity <= i.min_stock).length,
     [items]
   );
-  const location = useLocation();
+
+  if (!initialized && loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground text-sm">Loading InMan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !initialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center space-y-3 max-w-md px-4">
+          <AlertTriangle className="w-8 h-8 mx-auto text-destructive" />
+          <p className="text-destructive text-sm">{error}</p>
+          <Button onClick={() => initialize()} variant="outline" size="sm">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -70,8 +104,8 @@ export function Layout() {
           ))}
         </nav>
         <div className="px-5 py-4 border-t border-border">
-          <p className="text-[0.7rem] text-muted-foreground">Phase 1 — Spreadsheet Prototype</p>
-          <p className="text-[0.65rem] text-muted-foreground/60 mt-0.5">165 items cataloged</p>
+          <p className="text-[0.7rem] text-muted-foreground">Phase 3 — Web App</p>
+          <p className="text-[0.65rem] text-muted-foreground/60 mt-0.5">{items.length} items cataloged</p>
         </div>
       </aside>
 
