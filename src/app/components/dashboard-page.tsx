@@ -1,4 +1,5 @@
 import { useStore } from '../data/store';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import {
@@ -32,8 +33,15 @@ export function DashboardPage() {
   const items = useStore((s) => s.items);
   const categories = useStore((s) => s.categories);
   const locations = useStore((s) => s.locations);
-  const lowStock = useStore((s) => s.getLowStockItems());
-  const unassigned = useStore((s) => s.getUnassignedItems());
+
+  const lowStock = useMemo(
+    () => items.filter(i => i.min_stock !== null && i.quantity <= i.min_stock),
+    [items]
+  );
+  const unassigned = useMemo(
+    () => items.filter(i => i.location_id === null),
+    [items]
+  );
 
   const categoryData = categories.map((cat) => {
     const count = items.filter((i) => i.category_id === cat.category_id).length;

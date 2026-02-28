@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../data/store';
 import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
@@ -44,28 +44,33 @@ const UNITS = ['count', 'oz', 'lbs', 'g', 'ml', 'L', 'pkg'];
 const PAGE_SIZE = 20;
 
 export function InventoryPage() {
-  const {
-    items,
-    categories,
-    locations,
-    searchQuery,
-    selectedCategoryFilter,
-    setSearchQuery,
-    setCategoryFilter,
-    getFilteredItems,
-    getCategoryName,
-    getLocationName,
-    addItem,
-    updateItem,
-    deleteItem,
-  } = useStore();
+  const items = useStore((s) => s.items);
+  const categories = useStore((s) => s.categories);
+  const locations = useStore((s) => s.locations);
+  const searchQuery = useStore((s) => s.searchQuery);
+  const selectedCategoryFilter = useStore((s) => s.selectedCategoryFilter);
+  const setSearchQuery = useStore((s) => s.setSearchQuery);
+  const setCategoryFilter = useStore((s) => s.setCategoryFilter);
+  const getCategoryName = useStore((s) => s.getCategoryName);
+  const getLocationName = useStore((s) => s.getLocationName);
+  const addItem = useStore((s) => s.addItem);
+  const updateItem = useStore((s) => s.updateItem);
+  const deleteItem = useStore((s) => s.deleteItem);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [page, setPage] = useState(0);
 
-  const filteredItems = getFilteredItems();
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesSearch = !searchQuery ||
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+      const matchesCategory = selectedCategoryFilter === null || item.category_id === selectedCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, searchQuery, selectedCategoryFilter]);
   const totalPages = Math.ceil(filteredItems.length / PAGE_SIZE);
   const pagedItems = filteredItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 

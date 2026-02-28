@@ -9,7 +9,7 @@ import {
   X,
   ChefHat,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../data/store';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -25,7 +25,11 @@ const navItems = [
 
 export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const lowStockCount = useStore((s) => s.getLowStockItems().length);
+  const items = useStore((s) => s.items);
+  const lowStockCount = useMemo(
+    () => items.filter(i => i.min_stock !== null && i.quantity <= i.min_stock).length,
+    [items]
+  );
   const location = useLocation();
 
   return (

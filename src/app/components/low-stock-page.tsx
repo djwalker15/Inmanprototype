@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useStore } from '../data/store';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -16,17 +17,22 @@ import { toast } from 'sonner';
 
 export function LowStockPage() {
   const items = useStore((s) => s.items);
-  const getCategoryName = useStore((s) => s.getCategoryName);
-  const getLocationName = useStore((s) => s.getLocationName);
+  const categories = useStore((s) => s.categories);
   const updateItem = useStore((s) => s.updateItem);
 
-  const lowStockItems = items
-    .filter((i) => i.min_stock !== null && i.quantity <= i.min_stock)
-    .sort((a, b) => {
-      const aRatio = a.quantity / (a.min_stock || 1);
-      const bRatio = b.quantity / (b.min_stock || 1);
-      return aRatio - bRatio;
-    });
+  const getCategoryName = (id: number) =>
+    categories.find(c => c.category_id === id)?.category_name ?? 'Unknown';
+
+  const lowStockItems = useMemo(() =>
+    items
+      .filter((i) => i.min_stock !== null && i.quantity <= i.min_stock)
+      .sort((a, b) => {
+        const aRatio = a.quantity / (a.min_stock || 1);
+        const bRatio = b.quantity / (b.min_stock || 1);
+        return aRatio - bRatio;
+      }),
+    [items]
+  );
 
   const criticalItems = lowStockItems.filter((i) => i.quantity === 0);
   const warningItems = lowStockItems.filter((i) => i.quantity > 0);
