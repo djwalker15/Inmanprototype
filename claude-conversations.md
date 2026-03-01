@@ -90,3 +90,38 @@ ALTER TABLE spaces ADD CONSTRAINT spaces_unit_type_check
 
 #### Code
 [github.com/djwalker15/Inmanprototype/commit/32324c2](https://github.com/djwalker15/Inmanprototype/commit/32324c2)
+
+---
+
+## User
+### Prompt
+Can you update the .gitignore with our conversation docs and any other files or directories that should be there?
+
+## Assistant - Add standard .gitignore entries
+### Reasoning
+Read existing `.gitignore` (only had `node_modules`), `package.json` (pnpm project, Vite + React), and `utils/supabase/info.tsx` (contains public anon key — already committed, acceptable since anon keys are public-facing). Clarified with user that conversation docs should NOT be ignored.
+
+Discovered during implementation that `.gitignore` was never previously committed (new file to the repo), and `package-lock.json` was untracked (npm artifact in a pnpm project — should be ignored).
+
+Commands run:
+- `git status` — verified no existing files accidentally hidden
+- `git ls-files` — confirmed conversations.md and claude-conversations.md remain tracked
+- `git add .gitignore`
+- `git commit -m "Add .gitignore with standard Vite/pnpm/Supabase rules"`
+- `git push origin main`
+
+### Output
+#### Response
+Added standard entries to `.gitignore`:
+- `dist`, `dist-ssr` — Vite build output
+- `.env`, `.env.local`, `.env.*.local` — environment secrets
+- `*.log`, `npm-debug.log*`, `pnpm-debug.log*`, etc. — logs
+- `.vite` — Vite cache
+- `.DS_Store`, `Thumbs.db` — OS artifacts
+- `.vscode/*` (with `!.vscode/extensions.json` exception) — editor files
+- `package-lock.json` — npm lockfile artifact (this is a pnpm project)
+
+The `.gitignore` itself was not previously tracked — this commit adds it to the repo for the first time.
+
+#### Code
+[github.com/djwalker15/Inmanprototype/commit/e93a765](https://github.com/djwalker15/Inmanprototype/commit/e93a765)
