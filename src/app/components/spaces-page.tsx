@@ -32,6 +32,7 @@ const TYPE_ICONS: Record<string, string> = {
   area: '🏡',
   zone: '📍',
   section: '📦',
+  'sub-section': '🗂️',
   container: '🗄️',
   shelf: '📚',
 };
@@ -41,17 +42,19 @@ const TYPE_COLORS: Record<string, string> = {
   area: 'bg-indigo-100 text-indigo-700',
   zone: 'bg-violet-100 text-violet-700',
   section: 'bg-emerald-100 text-emerald-700',
+  'sub-section': 'bg-teal-100 text-teal-700',
   container: 'bg-amber-100 text-amber-700',
   shelf: 'bg-sky-100 text-sky-700',
 };
 
-const UNIT_TYPES: SpaceUnitType[] = ['premises', 'area', 'zone', 'section', 'container', 'shelf'];
+const UNIT_TYPES: SpaceUnitType[] = ['premises', 'area', 'zone', 'section', 'sub-section', 'container', 'shelf'];
 
 const TYPE_DESCRIPTIONS: Record<SpaceUnitType, string> = {
   premises: 'Whole property',
   area: 'Major area',
   zone: 'Logical zone',
   section: 'Sub-area',
+  'sub-section': 'Nested section',
   container: 'Storage unit',
   shelf: 'Individual shelf',
 };

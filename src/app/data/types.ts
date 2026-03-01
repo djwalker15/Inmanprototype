@@ -1,6 +1,6 @@
 // InMan Types — Space-based model (Location retired)
 
-export type SpaceUnitType = 'premises' | 'area' | 'zone' | 'section' | 'container' | 'shelf';
+export type SpaceUnitType = 'premises' | 'area' | 'zone' | 'section' | 'sub-section' | 'container' | 'shelf';
 
 export interface Space {
   space_id: number;
