@@ -22,6 +22,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Space, SpaceUnitType } from '../data/types';
@@ -45,6 +46,15 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const UNIT_TYPES: SpaceUnitType[] = ['premises', 'area', 'zone', 'section', 'container', 'shelf'];
+
+const TYPE_DESCRIPTIONS: Record<SpaceUnitType, string> = {
+  premises: 'Whole property',
+  area: 'Major area',
+  zone: 'Logical zone',
+  section: 'Sub-area',
+  container: 'Storage unit',
+  shelf: 'Individual shelf',
+};
 
 // Build indented tree, excluding a space and its descendants (for parent dropdown)
 function buildSpaceTree(
@@ -255,6 +265,14 @@ export function SpacesPage() {
 
   const hasChildrenForDelete = deleteConfirm ? getChildren(deleteConfirm.space_id).length > 0 : false;
 
+  // Count spaces per type for the hierarchy bar
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of UNIT_TYPES) counts[t] = 0;
+    for (const s of spaces) counts[s.unit_type] = (counts[s.unit_type] || 0) + 1;
+    return counts;
+  }, [spaces]);
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -273,6 +291,52 @@ export function SpacesPage() {
           </Button>
         </div>
       </div>
+
+      {/* Hierarchy chain — always visible */}
+      <Card className="border-dashed">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[0.75rem] font-medium text-muted-foreground uppercase tracking-wider">Type Hierarchy</span>
+          </div>
+          <div className="flex flex-wrap items-stretch gap-0">
+            {UNIT_TYPES.map((type, idx) => {
+              const isActive = selectedSpace?.unit_type === type;
+              return (
+                <div key={type} className="flex items-stretch">
+                  <div
+                    className={`
+                      flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all min-w-[5.5rem]
+                      ${isActive
+                        ? `ring-2 ring-offset-1 ring-current ${TYPE_COLORS[type]} shadow-sm`
+                        : 'hover:bg-muted/50'
+                      }
+                    `}
+                  >
+                    <span className="text-[1.1rem] leading-none">{TYPE_ICONS[type]}</span>
+                    <span className={`text-[0.75rem] font-semibold mt-1 capitalize ${isActive ? '' : 'text-foreground'}`}>
+                      {type}
+                    </span>
+                    <span className="text-[0.65rem] text-muted-foreground leading-tight mt-0.5">
+                      {TYPE_DESCRIPTIONS[type]}
+                    </span>
+                    <Badge
+                      variant={isActive ? 'default' : 'secondary'}
+                      className="text-[0.6rem] px-1.5 py-0 mt-1 h-4"
+                    >
+                      {typeCounts[type]}
+                    </Badge>
+                  </div>
+                  {idx < UNIT_TYPES.length - 1 && (
+                    <div className="flex items-center px-1">
+                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Tree view */}
