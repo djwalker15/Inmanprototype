@@ -125,3 +125,54 @@ The `.gitignore` itself was not previously tracked — this commit adds it to th
 
 #### Code
 [github.com/djwalker15/Inmanprototype/commit/e93a765](https://github.com/djwalker15/Inmanprototype/commit/e93a765)
+
+---
+
+## User
+### Prompt
+Can we deploy this to Google Cloud Run
+
+## Assistant - Add Cloud Run deployment files
+### Reasoning
+Launched Explore agent to understand the full architecture. Key finding: the backend (Hono server) already runs on Supabase Edge Functions — it's already deployed and the frontend calls it directly at `https://fifswrbhlyerldkgwguc.supabase.co/functions/v1/make-server-d0cf987d`. Only the frontend needs a new deployment target.
+
+Also found: the backend uses Deno-specific APIs (`Deno.serve`, `Deno.env.get`, `npm:` imports) — it cannot run in a standard Node.js container without a significant rewrite. Confirmed with user that frontend-only on Cloud Run is the right approach.
+
+React Router uses `createBrowserRouter` (HTML5 history), so nginx needs `try_files $uri $uri/ /index.html` to prevent 404s on direct URL navigation.
+
+Commands run:
+- `git add Dockerfile nginx.conf .dockerignore`
+- `git commit -m "Add Cloud Run deployment files (Dockerfile, nginx, dockerignore)"`
+- `git push origin main`
+
+### Output
+#### Response
+Created 3 new files:
+- **`Dockerfile`** — multi-stage build: Node 20 Alpine builds the Vite app, nginx Alpine serves `dist/` on port 8080
+- **`nginx.conf`** — listens on 8080, `try_files` for React Router SPA routing, gzip enabled
+- **`.dockerignore`** — excludes `node_modules`, `dist`, `.git`, markdown files, and import docs from the image
+
+No source code changes required — the frontend already calls Supabase directly.
+
+**To deploy (replace `YOUR_GCP_PROJECT_ID` and region as needed):**
+```bash
+gcloud auth login
+gcloud config set project YOUR_GCP_PROJECT_ID
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+
+gcloud artifacts repositories create inman \
+  --repository-format=docker --location=us-central1
+
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+docker build -t us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/inman/frontend .
+docker push us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/inman/frontend
+
+gcloud run deploy inman-frontend \
+  --image us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/inman/frontend \
+  --platform managed --region us-central1 \
+  --allow-unauthenticated --port 8080
+```
+
+#### Code
+[github.com/djwalker15/Inmanprototype/commit/5c588d0](https://github.com/djwalker15/Inmanprototype/commit/5c588d0)
