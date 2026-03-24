@@ -176,3 +176,54 @@ gcloud run deploy inman-frontend \
 
 #### Code
 [github.com/djwalker15/Inmanprototype/commit/5c588d0](https://github.com/djwalker15/Inmanprototype/commit/5c588d0)
+
+---
+
+## User
+### Prompt
+Can you create a comprehensive design doc from the files in this project. I want to take this design doc and make updates to it so I can start a separate project based on this one
+
+## Assistant - Create comprehensive design document
+### Reasoning
+Launched 3 parallel Explore agents to fully cover the codebase:
+1. Data model, API, and backend — types.ts, api.ts, store.ts, server/index.tsx, supabase-client.tsx, seed.tsx
+2. All 5 frontend pages — routes, layout, dashboard, inventory, spaces, categories, low-stock
+3. Tech stack, config, and deployment — package.json, vite.config.ts, index.html, theme.css, Dockerfile, nginx.conf, src/imports/*.md, guidelines/
+
+Key findings incorporated:
+- Full DB schema (3 tables, FK behaviors, sequence reset SQL)
+- Complete API contract (all routes, request/response shapes, special modes)
+- Full Zustand store interface with initialization pattern
+- Per-page breakdown: purpose, form fields, UX patterns, store reads/writes
+- 7-level space hierarchy table with icons/colors
+- OKLCH design token system
+- Deployment commands (Cloud Run + Supabase CLI)
+- Future considerations from original project docs
+
+Commands run:
+- `git add design-doc.md`
+- `git commit -m "Add comprehensive design-doc.md"`
+- `git push origin main`
+
+### Output
+#### Response
+Created [`design-doc.md`](design-doc.md) (785 lines) covering 14 sections:
+1. Project Overview — multi-phase roadmap, current state
+2. Architecture — ASCII data flow diagram, key design decisions
+3. Tech Stack — categorized dependency tables
+4. Database Schema — full SQL for 3 tables, FK behaviors, sequence reset
+5. TypeScript Types — full interfaces
+6. Space Hierarchy — 7-level reference table with icons/colors
+7. API Contract — all routes with request/response shapes and special behaviors
+8. Zustand Store — full interface + initialization pattern
+9. Frontend Pages — per-page: purpose, form fields, table columns, UX patterns
+10. Layout & Navigation — sidebar, mobile nav, initialization lifecycle
+11. Styling System — OKLCH tokens, dark mode, cn() utility pattern
+12. Seed Data — categories list, space hierarchy diagram, item distribution by category
+13. Deployment — local dev, Docker, Cloud Run gcloud commands, Supabase CLI
+14. Future Considerations — barcode scanning, multi-room, Realtime, RLS, mobile
+
+The doc opens with a note to adapt domain-specific content (categories, hierarchy, seed data) while keeping the architecture and patterns.
+
+#### Code
+[github.com/djwalker15/Inmanprototype/commit/8f89de8](https://github.com/djwalker15/Inmanprototype/commit/8f89de8)
